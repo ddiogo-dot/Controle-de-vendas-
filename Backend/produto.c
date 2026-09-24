@@ -1,123 +1,6 @@
+#include "armazenamento.h"
+#include "regras.h"
 #include "produto.h"
-
-void limparBuffer(void) {
-    int c;
-    while ((c = getchar()) != '\n' && c != EOF) {
-    }
-}
-
-int lerInteiro(int *valor, const char *mensagem) {
-    char entrada[64];
-    char *fim = NULL;
-    long numero;
-
-    printf("%s", mensagem);
-    if (fgets(entrada, sizeof(entrada), stdin) == NULL) {
-        limparBuffer();
-        return 0;
-    }
-
-    entrada[strcspn(entrada, "\n")] = '\0';
-
-    if (entrada[0] == '\0') {
-        printf("\nERRO: Digite um numero inteiro valido.\n");
-        return 0;
-    }
-
-    errno = 0;
-    numero = strtol(entrada, &fim, 10);
-
-    if (errno == ERANGE || fim == entrada || *fim != '\0' || numero < INT_MIN || numero > INT_MAX) {
-        printf("\nERRO: Digite um numero inteiro valido.\n");
-        return 0;
-    }
-
-    *valor = (int)numero;
-    return 1;
-}
-
-int lerFloat(float *valor, const char *mensagem) {
-    char entrada[64];
-    char *fim = NULL;
-    float numero;
-
-    printf("%s", mensagem);
-    if (fgets(entrada, sizeof(entrada), stdin) == NULL) {
-        limparBuffer();
-        return 0;
-    }
-
-    entrada[strcspn(entrada, "\n")] = '\0';
-
-    if (entrada[0] == '\0') {
-        printf("\nERRO: Digite um numero valido.\n");
-        return 0;
-    }
-
-    errno = 0;
-    numero = strtof(entrada, &fim);
-
-    if (errno == ERANGE || fim == entrada || *fim != '\0') {
-        printf("\nERRO: Digite um numero valido.\n");
-        return 0;
-    }
-
-    *valor = numero;
-    return 1;
-}
-
-int lerTexto(char *destino, size_t tamanho, const char *mensagem) {
-    char buffer[256];
-    size_t len;
-    int i;
-    int temLetra = 0;
-
-    if (tamanho == 0) {
-        return 0;
-    }
-
-    printf("%s", mensagem);
-    if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
-        return 0;
-    }
-
-    buffer[strcspn(buffer, "\n")] = '\0';
-
-    while (*buffer == ' ' || *buffer == '\t') {
-        memmove(buffer, buffer + 1, strlen(buffer));
-    }
-
-    len = strlen(buffer);
-    while (len > 0 && (buffer[len - 1] == ' ' || buffer[len - 1] == '\t')) {
-        buffer[--len] = '\0';
-    }
-
-    if (len == 0) {
-        printf("\nERRO: O texto nao pode estar vazio.\n");
-        return 0;
-    }
-
-    for (i = 0; buffer[i] != '\0'; i++) {
-        if ((buffer[i] >= 'a' && buffer[i] <= 'z') || (buffer[i] >= 'A' && buffer[i] <= 'Z')) {
-            temLetra = 1;
-            break;
-        }
-    }
-
-    if (!temLetra) {
-        printf("\nERRO: O nome do produto nao pode ser numerico.\n");
-        return 0;
-    }
-
-    if (len >= tamanho) {
-        printf("\nERRO: Texto muito longo. Maximo %zu caracteres.\n", tamanho - 1);
-        limparBuffer();
-        return 0;
-    }
-
-    strcpy(destino, buffer);
-    return 1;
-}
 
 int produtoExiste(int codigo) {
     FILE *arquivo;
@@ -129,14 +12,10 @@ int produtoExiste(int codigo) {
         return 0;
     }
 
-    while (fscanf(arquivo, "%d %99s %f %f %d",
-                  &p.codigo,
-                  p.nome,
-                  &p.precoCompra,
-                  &p.precoVenda,
-                  &p.quantidade) == 5) {
+    while (lerProdutoArquivo(arquivo, &p) == 1) {
 
         if (p.codigo == codigo) {
+            if (erroLeituraProdutos()) printf("\nERRO: Arquivo de produtos invalido ou ilegivel.\n");
             fclose(arquivo);
             return 1;
         }
@@ -147,6 +26,8 @@ int produtoExiste(int codigo) {
         }
     }
 
+    if (erroLeituraProdutos()) printf("\nERRO: Arquivo de produtos invalido ou ilegivel.\n");
+
     fclose(arquivo);
     return 0;
 }
@@ -155,7 +36,7 @@ void substituirEspacos(char *nome) {
     int i;
 
     for (i = 0; nome[i] != '\0'; i++) {
-        if (nome[i] == ' ') {
+        if (nome[i] == ' ' || nome[i] == '\t') {
             nome[i] = '_';
         }
     }
@@ -182,59 +63,31 @@ int cadastrarProduto(Produto *p) {
     while (!lerTexto(p->nome, sizeof(p->nome), "Digite o nome do produto: ")) {
     }
 
-    do {
-        if (!lerFloat(&p->precoCompra, "Digite o preco de compra: ")) {
-            continue;
-        }
-        substituirEspacos(p->nome);
+    while (1) {
+        if (!lerFloat(&p->precoCompra, "Digite o preco de compra: ")) continue;
+        if (p->precoCompra >= 0) break;
+        printf("ERRO: O valor nao pode ser negativo.\n");
+    }
 
-        if (p->precoCompra < 0) {
-            printf("ERRO: O preco nao pode ser negativo.\n");
-        }
-    } while (p->precoCompra < 0);
+    while (1) {
+        if (!lerFloat(&p->precoVenda, "Digite o preco de venda: ")) continue;
+        if (p->precoVenda >= 0) break;
+        printf("ERRO: O valor nao pode ser negativo.\n");
+    }
 
-    do {
-        if (!lerFloat(&p->precoVenda, "Digite o preco de venda: ")) {
-            continue;
-        }
+    while (1) {
+        if (!lerInteiro(&p->quantidade, "Digite a quantidade em estoque: ")) continue;
+        if (p->quantidade >= 0) break;
+        printf("ERRO: O valor nao pode ser negativo.\n");
+    }
 
-        if (p->precoVenda < 0) {
-            printf("ERRO: O preco nao pode ser negativo.\n");
-        }
-    } while (p->precoVenda < 0);
-
-    do {
-        if (!lerInteiro(&p->quantidade, "Digite a quantidade em estoque: ")) {
-            continue;
-        }
-
-        if (p->quantidade < 0) {
-            printf("ERRO: A quantidade nao pode ser negativa.\n");
-        }
-    } while (p->quantidade < 0);
-
+    substituirEspacos(p->nome);
     return 1;
 }
 
 void salvarProduto(Produto p) {
-    FILE *arquivo;
-
-    arquivo = fopen("produtos.txt", "a");
-
-    if (arquivo == NULL) {
-        printf("\nErro ao abrir o arquivo.\n");
-        return;
-    }
-
-    fprintf(arquivo, "%d %s %.2f %.2f %d\n",
-            p.codigo,
-            p.nome,
-            p.precoCompra,
-            p.precoVenda,
-            p.quantidade);
-
-    fclose(arquivo);
-    printf("\nProduto salvo com sucesso!\n");
+    Resultado r = criarProduto(&p);
+    printf("\n%s\n", mensagemResultado(r));
 }
 
 void listarProdutos(void) {
@@ -250,12 +103,7 @@ void listarProdutos(void) {
 
     printf("\n===== PRODUTOS CADASTRADOS =====\n");
 
-    while (fscanf(arquivo, "%d %99s %f %f %d",
-                  &p.codigo,
-                  p.nome,
-                  &p.precoCompra,
-                  &p.precoVenda,
-                  &p.quantidade) == 5) {
+    while (lerProdutoArquivo(arquivo, &p) == 1) {
 
         printf("\nCodigo: %d\n", p.codigo);
         printf("Nome: %s\n", p.nome);
@@ -263,6 +111,8 @@ void listarProdutos(void) {
         printf("Preco de venda: R$ %.2f\n", p.precoVenda);
         printf("Quantidade: %d\n", p.quantidade);
     }
+
+    if (erroLeituraProdutos()) printf("\nERRO: Arquivo de produtos invalido ou ilegivel.\n");
 
     fclose(arquivo);
 }
@@ -283,12 +133,7 @@ void pesquisarProduto(void) {
         return;
     }
 
-    while (fscanf(arquivo, "%d %99s %f %f %d",
-                  &p.codigo,
-                  p.nome,
-                  &p.precoCompra,
-                  &p.precoVenda,
-                  &p.quantidade) == 5) {
+    while (lerProdutoArquivo(arquivo, &p) == 1) {
 
         if (p.codigo == codigo) {
             printf("\n===== PRODUTO ENCONTRADO =====\n");
@@ -302,6 +147,8 @@ void pesquisarProduto(void) {
             break;
         }
     }
+
+    if (erroLeituraProdutos()) printf("\nERRO: Arquivo de produtos invalido ou ilegivel.\n");
 
     fclose(arquivo);
 
@@ -327,20 +174,20 @@ void alterarProduto(void) {
         return;
     }
 
+    if (!validarArquivoProdutos(arquivo)) {
+        printf("ERRO: Arquivo de produtos invalido; nenhum dado foi alterado.\n");
+        fclose(arquivo); return;
+    }
     temporario = fopen("temp.txt", "w");
 
     if (temporario == NULL) {
         printf("\nErro ao criar arquivo temporario.\n");
+        if (erroLeituraProdutos()) printf("\nERRO: Arquivo de produtos invalido ou ilegivel.\n");
         fclose(arquivo);
         return;
     }
 
-    while (fscanf(arquivo, "%d %99s %f %f %d",
-                  &p.codigo,
-                  p.nome,
-                  &p.precoCompra,
-                  &p.precoVenda,
-                  &p.quantidade) == 5) {
+    while (lerProdutoArquivo(arquivo, &p) == 1) {
 
         if (p.codigo == codigo) {
             printf("\n===== ALTERAR PRODUTO =====\n");
@@ -348,33 +195,25 @@ void alterarProduto(void) {
             while (!lerTexto(p.nome, sizeof(p.nome), "Novo nome: ")) {
             }
 
-            do {
-                if (!lerFloat(&p.precoCompra, "Novo preco de compra: ")) {
-                    continue;
-                }
-                if (p.precoCompra < 0) {
-                    printf("ERRO: O preco nao pode ser negativo.\n");
-                }
-            } while (p.precoCompra < 0);
+            while (1) {
+                if (!lerFloat(&p.precoCompra, "Novo preco de compra: ")) continue;
+                if (p.precoCompra >= 0) break;
+                printf("ERRO: O valor nao pode ser negativo.\n");
+            }
 
-            do {
-                if (!lerFloat(&p.precoVenda, "Novo preco de venda: ")) {
-                    continue;
-                }
-                if (p.precoVenda < 0) {
-                    printf("ERRO: O preco nao pode ser negativo.\n");
-                }
-            } while (p.precoVenda < 0);
+            while (1) {
+                if (!lerFloat(&p.precoVenda, "Novo preco de venda: ")) continue;
+                if (p.precoVenda >= 0) break;
+                printf("ERRO: O valor nao pode ser negativo.\n");
+            }
 
-            do {
-                if (!lerInteiro(&p.quantidade, "Nova quantidade: ")) {
-                    continue;
-                }
-                if (p.quantidade < 0) {
-                    printf("ERRO: A quantidade nao pode ser negativa.\n");
-                }
-            } while (p.quantidade < 0);
+            while (1) {
+                if (!lerInteiro(&p.quantidade, "Nova quantidade: ")) continue;
+                if (p.quantidade >= 0) break;
+                printf("ERRO: O valor nao pode ser negativo.\n");
+            }
 
+            substituirEspacos(p.nome);
             encontrado = 1;
         }
 
@@ -386,11 +225,10 @@ void alterarProduto(void) {
                 p.quantidade);
     }
 
-    fclose(arquivo);
-    fclose(temporario);
-
-    remove("produtos.txt");
-    rename("temp.txt", "produtos.txt");
+    if (!concluirProdutos(arquivo, temporario)) {
+        printf("\nERRO: Produtos nao atualizados. Verifique os arquivos; preserve um backup.\n");
+        return;
+    }
 
     if (encontrado) {
         printf("\nProduto alterado com sucesso!\n");
@@ -416,20 +254,20 @@ void excluirProduto(void) {
         return;
     }
 
+    if (!validarArquivoProdutos(arquivo)) {
+        printf("ERRO: Arquivo de produtos invalido; nenhum dado foi alterado.\n");
+        fclose(arquivo); return;
+    }
     temporario = fopen("temp.txt", "w");
 
     if (temporario == NULL) {
         printf("\nErro ao criar arquivo temporario.\n");
+        if (erroLeituraProdutos()) printf("\nERRO: Arquivo de produtos invalido ou ilegivel.\n");
         fclose(arquivo);
         return;
     }
 
-    while (fscanf(arquivo, "%d %99s %f %f %d",
-                  &p.codigo,
-                  p.nome,
-                  &p.precoCompra,
-                  &p.precoVenda,
-                  &p.quantidade) == 5) {
+    while (lerProdutoArquivo(arquivo, &p) == 1) {
 
         if (p.codigo == codigo) {
             encontrado = 1;
@@ -444,11 +282,10 @@ void excluirProduto(void) {
                 p.quantidade);
     }
 
-    fclose(arquivo);
-    fclose(temporario);
-
-    remove("produtos.txt");
-    rename("temp.txt", "produtos.txt");
+    if (!concluirProdutos(arquivo, temporario)) {
+        printf("\nERRO: Produtos nao atualizados. Verifique os arquivos; preserve um backup.\n");
+        return;
+    }
 
     if (encontrado) {
         printf("\nProduto excluido com sucesso!\n");

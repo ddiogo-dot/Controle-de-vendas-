@@ -1,6 +1,9 @@
-#include "Backend/produto.h"
-#include "Backend/relatorio.h"
-#include "Backend/vendas.h"
+#include <sys/file.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include "produto.h"
+#include "relatorio.h"
+#include "vendas.h"
 
 void menu(void) {
     int opcao;
@@ -74,6 +77,13 @@ void menu(void) {
 }
 
 int main(void) {
+    int lock = open(".controle.lock", O_CREAT | O_RDWR, 0600);
+    if (lock < 0 || flock(lock, LOCK_EX | LOCK_NB) != 0) {
+        fprintf(stderr, "Outro processo esta usando os dados, ou nao foi possivel obter o bloqueio.\n");
+        if (lock >= 0) close(lock);
+        return EXIT_FAILURE;
+    }
     menu();
+    close(lock);
     return 0;
 }

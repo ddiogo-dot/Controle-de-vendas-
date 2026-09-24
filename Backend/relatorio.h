@@ -7,5 +7,4 @@ void relatorioEstoque(void);
 void relatorioVendas(void);
 void relatorioPerdas(void);
 void relatorioFinanceiro(void);
-
 #endif

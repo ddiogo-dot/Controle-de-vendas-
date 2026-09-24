@@ -1,3 +1,5 @@
+#include "armazenamento.h"
+#include "regras.h"
 #include "vendas.h"
 
 void registrarVenda(void) {
@@ -9,6 +11,7 @@ void registrarVenda(void) {
     int codigo;
     int quantidadeVenda;
     int encontrado = 0;
+    int registrado = 0;
     float faturamento;
     float custo;
     float lucro;
@@ -18,7 +21,10 @@ void registrarVenda(void) {
     while (!lerInteiro(&codigo, "Digite o codigo do produto: ")) {
     }
 
-    while (!lerInteiro(&quantidadeVenda, "Digite a quantidade vendida: ")) {
+    while (1) {
+        if (!lerInteiro(&quantidadeVenda, "Digite a quantidade vendida: ")) continue;
+        if (quantidadeVenda > 0) break;
+        printf("ERRO: A quantidade deve ser maior que zero.\n");
     }
 
     arquivo = fopen("produtos.txt", "r");
@@ -28,20 +34,21 @@ void registrarVenda(void) {
         return;
     }
 
+    if (!validarArquivoProdutos(arquivo)) {
+        printf("ERRO: Arquivo de produtos invalido; nenhum dado foi alterado.\n");
+        fclose(arquivo);
+        return;
+    }
     temporario = fopen("temp.txt", "w");
 
     if (temporario == NULL) {
         printf("\nErro ao criar arquivo temporario.\n");
+        if (erroLeituraProdutos()) printf("\nERRO: Arquivo de produtos invalido ou ilegivel.\n");
         fclose(arquivo);
         return;
     }
 
-    while (fscanf(arquivo, "%d %99s %f %f %d",
-                  &p.codigo,
-                  p.nome,
-                  &p.precoCompra,
-                  &p.precoVenda,
-                  &p.quantidade) == 5) {
+    while (lerProdutoArquivo(arquivo, &p) == 1) {
 
         if (p.codigo == codigo) {
             encontrado = 1;
@@ -56,11 +63,12 @@ void registrarVenda(void) {
                         p.precoVenda,
                         p.quantidade);
             } else {
+                Resultado r = calcularVenda(&p, quantidadeVenda, &faturamento, &custo, &lucro);
+                if (r != RESULTADO_OK) {
+                    printf("%s\n", mensagemResultado(r));
+                    fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                }
                 p.quantidade -= quantidadeVenda;
-
-                faturamento = quantidadeVenda * p.precoVenda;
-                custo = quantidadeVenda * p.precoCompra;
-                lucro = faturamento - custo;
 
                 fprintf(temporario, "%d %s %.2f %.2f %d\n",
                         p.codigo,
@@ -73,6 +81,7 @@ void registrarVenda(void) {
 
                 if (vendas == NULL) {
                     printf("\nErro ao abrir arquivo de vendas.\n");
+                    if (erroLeituraProdutos()) printf("\nERRO: Arquivo de produtos invalido ou ilegivel.\n");
                     fclose(arquivo);
                     fclose(temporario);
                     remove("temp.txt");
@@ -90,16 +99,24 @@ void registrarVenda(void) {
 
                 leituraVendas = fopen("vendas.txt", "r");
 
+                if (leituraVendas == NULL) {
+                    printf("ERRO: Nao foi possivel ler o historico.\n");
+                    fclose(vendas); fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                }
                 if (leituraVendas != NULL) {
-                    while (fscanf(leituraVendas,
-                                  "%d %d %d %f %f %f",
-                                  &n,
-                                  &codigoLido,
-                                  &quantidadeLida,
-                                  &faturamentoLido,
-                                  &custoLido,
-                                  &lucroLido) == 6) {
-                        numeroVenda = n + 1;
+                    int leitura;
+                    while ((leitura = lerHistorico(leituraVendas, 6, &n, &codigoLido, &quantidadeLida, &faturamentoLido, &custoLido, &lucroLido)) == 1) {
+                        if (n <= 0 || n == INT_MAX) {
+                            printf("ERRO: Identificador invalido no historico.\n");
+                            fclose(leituraVendas); fclose(vendas);
+                            fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                        }
+                        if (n >= numeroVenda) numeroVenda = n + 1;
+                    }
+                    if (leitura < 0) {
+                        printf("ERRO: Historico invalido; operacao cancelada.\n");
+                        fclose(leituraVendas); fclose(vendas);
+                        fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
                     }
                     fclose(leituraVendas);
                 }
@@ -112,9 +129,13 @@ void registrarVenda(void) {
                         custo,
                         lucro);
 
-                fclose(vendas);
+                if (!fecharGravacao(vendas)) {
+                    printf("ERRO: Falha ao gravar historico. Estoque nao atualizado; confira o historico antes de tentar novamente.\n");
+                    fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                }
 
-                printf("\nVenda registrada com sucesso!\n");
+
+                registrado = 1;
                 printf("Faturamento: R$ %.2f\n", faturamento);
                 printf("Custo: R$ %.2f\n", custo);
                 printf("Lucro: R$ %.2f\n", lucro);
@@ -129,70 +150,15 @@ void registrarVenda(void) {
         }
     }
 
-    fclose(arquivo);
-    fclose(temporario);
-
-    remove("produtos.txt");
-    rename("temp.txt", "produtos.txt");
-
-    if (encontrado == 0) {
-        printf("\nProduto nao encontrado.\n");
-    }
-}
-
-void relatorioVendas(void) {
-    FILE *arquivo;
-    int numeroVenda;
-    int codigo;
-    int quantidade;
-    float faturamento;
-    float custo;
-    float lucro;
-    float totalFaturamento = 0;
-    float totalCusto = 0;
-    float totalLucro = 0;
-    int encontrou = 0;
-
-    arquivo = fopen("vendas.txt", "r");
-
-    if (arquivo == NULL) {
-        printf("\nNenhuma venda registrada.\n");
+    if (!concluirProdutos(arquivo, temporario)) {
+        printf("\nERRO: Estoque nao atualizado. O historico pode conter a operacao; confira os arquivos antes de repetir.\n");
         return;
     }
 
-    printf("\n===== RELATORIO DE VENDAS =====\n");
-
-    while (fscanf(arquivo,
-                  "%d %d %d %f %f %f",
-                  &numeroVenda,
-                  &codigo,
-                  &quantidade,
-                  &faturamento,
-                  &custo,
-                  &lucro) == 6) {
-
-        encontrou = 1;
-
-        printf("\nVenda: %d\n", numeroVenda);
-        printf("Codigo do produto: %d\n", codigo);
-        printf("Quantidade: %d\n", quantidade);
-        printf("Faturamento: R$ %.2f\n", faturamento);
-        printf("Custo: R$ %.2f\n", custo);
-        printf("Lucro: R$ %.2f\n", lucro);
-
-        totalFaturamento += faturamento;
-        totalCusto += custo;
-        totalLucro += lucro;
+    if (registrado) printf("Operacao registrada com sucesso!\n");
+    if (encontrado == 0) {
+        printf("\nProduto nao encontrado.\n");
     }
-
-    if (encontrou) {
-        printf("\n-----------------------------\n");
-        printf("Faturamento total: R$ %.2f\n", totalFaturamento);
-        printf("Custo total: R$ %.2f\n", totalCusto);
-        printf("Lucro total: R$ %.2f\n", totalLucro);
-    }
-
-    fclose(arquivo);
 }
 
 void registrarPerda(void) {
@@ -204,6 +170,7 @@ void registrarPerda(void) {
     int codigo;
     int quantidadePerdida;
     int encontrado = 0;
+    int registrado = 0;
     float valorPerda;
 
     printf("\n===== REGISTRAR PERDA =====\n");
@@ -211,7 +178,10 @@ void registrarPerda(void) {
     while (!lerInteiro(&codigo, "Digite o codigo do produto: ")) {
     }
 
-    while (!lerInteiro(&quantidadePerdida, "Digite a quantidade perdida: ")) {
+    while (1) {
+        if (!lerInteiro(&quantidadePerdida, "Digite a quantidade perdida: ")) continue;
+        if (quantidadePerdida > 0) break;
+        printf("ERRO: A quantidade deve ser maior que zero.\n");
     }
 
     arquivo = fopen("produtos.txt", "r");
@@ -221,20 +191,21 @@ void registrarPerda(void) {
         return;
     }
 
+    if (!validarArquivoProdutos(arquivo)) {
+        printf("ERRO: Arquivo de produtos invalido; nenhum dado foi alterado.\n");
+        fclose(arquivo);
+        return;
+    }
     temporario = fopen("temp.txt", "w");
 
     if (temporario == NULL) {
         printf("\nErro ao criar arquivo temporario.\n");
+        if (erroLeituraProdutos()) printf("\nERRO: Arquivo de produtos invalido ou ilegivel.\n");
         fclose(arquivo);
         return;
     }
 
-    while (fscanf(arquivo, "%d %99s %f %f %d",
-                  &p.codigo,
-                  p.nome,
-                  &p.precoCompra,
-                  &p.precoVenda,
-                  &p.quantidade) == 5) {
+    while (lerProdutoArquivo(arquivo, &p) == 1) {
 
         if (p.codigo == codigo) {
             encontrado = 1;
@@ -249,8 +220,12 @@ void registrarPerda(void) {
                         p.precoVenda,
                         p.quantidade);
             } else {
+                Resultado r = calcularPerda(&p, quantidadePerdida, &valorPerda);
+                if (r != RESULTADO_OK) {
+                    printf("%s\n", mensagemResultado(r));
+                    fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                }
                 p.quantidade -= quantidadePerdida;
-                valorPerda = quantidadePerdida * p.precoCompra;
 
                 fprintf(temporario, "%d %s %.2f %.2f %d\n",
                         p.codigo,
@@ -263,6 +238,7 @@ void registrarPerda(void) {
 
                 if (perdas == NULL) {
                     printf("\nErro ao abrir arquivo de perdas.\n");
+                    if (erroLeituraProdutos()) printf("\nERRO: Arquivo de produtos invalido ou ilegivel.\n");
                     fclose(arquivo);
                     fclose(temporario);
                     remove("temp.txt");
@@ -278,14 +254,24 @@ void registrarPerda(void) {
 
                 leituraPerdas = fopen("perdas.txt", "r");
 
+                if (leituraPerdas == NULL) {
+                    printf("ERRO: Nao foi possivel ler o historico.\n");
+                    fclose(perdas); fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                }
                 if (leituraPerdas != NULL) {
-                    while (fscanf(leituraPerdas,
-                                  "%d %d %d %f",
-                                  &n,
-                                  &codigoLido,
-                                  &quantidadeLida,
-                                  &valorLido) == 4) {
-                        numeroPerda = n + 1;
+                    int leitura;
+                    while ((leitura = lerHistorico(leituraPerdas, 4, &n, &codigoLido, &quantidadeLida, &valorLido, NULL, NULL)) == 1) {
+                        if (n <= 0 || n == INT_MAX) {
+                            printf("ERRO: Identificador invalido no historico.\n");
+                            fclose(leituraPerdas); fclose(perdas);
+                            fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                        }
+                        if (n >= numeroPerda) numeroPerda = n + 1;
+                    }
+                    if (leitura < 0) {
+                        printf("ERRO: Historico invalido; operacao cancelada.\n");
+                        fclose(leituraPerdas); fclose(perdas);
+                        fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
                     }
                     fclose(leituraPerdas);
                 }
@@ -296,9 +282,13 @@ void registrarPerda(void) {
                         quantidadePerdida,
                         valorPerda);
 
-                fclose(perdas);
+                if (!fecharGravacao(perdas)) {
+                    printf("ERRO: Falha ao gravar historico. Estoque nao atualizado; confira o historico antes de tentar novamente.\n");
+                    fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                }
 
-                printf("\nPerda registrada com sucesso!\n");
+
+                registrado = 1;
                 printf("Valor da perda: R$ %.2f\n", valorPerda);
             }
         } else {
@@ -311,115 +301,14 @@ void registrarPerda(void) {
         }
     }
 
-    fclose(arquivo);
-    fclose(temporario);
+    if (!concluirProdutos(arquivo, temporario)) {
+        printf("\nERRO: Estoque nao atualizado. O historico pode conter a operacao; confira os arquivos antes de repetir.\n");
+        return;
+    }
 
-    remove("produtos.txt");
-    rename("temp.txt", "produtos.txt");
-
+    if (registrado) printf("Operacao registrada com sucesso!\n");
     if (encontrado == 0) {
         printf("\nProduto nao encontrado.\n");
     }
 }
 
-void relatorioPerdas(void) {
-    FILE *arquivo;
-    int numeroPerda;
-    int codigo;
-    int quantidade;
-    float valorPerda;
-    float totalPerdas = 0;
-
-    arquivo = fopen("perdas.txt", "r");
-
-    if (arquivo == NULL) {
-        printf("\nNenhuma perda registrada.\n");
-        return;
-    }
-
-    printf("\n===== RELATORIO DE PERDAS =====\n");
-
-    while (fscanf(arquivo,
-                  "%d %d %d %f",
-                  &numeroPerda,
-                  &codigo,
-                  &quantidade,
-                  &valorPerda) == 4) {
-
-        printf("\nPerda: %d\n", numeroPerda);
-        printf("Codigo do produto: %d\n", codigo);
-        printf("Quantidade perdida: %d\n", quantidade);
-        printf("Valor da perda: R$ %.2f\n", valorPerda);
-
-        totalPerdas += valorPerda;
-    }
-
-    printf("\n-----------------------------\n");
-    printf("Total de perdas: R$ %.2f\n", totalPerdas);
-
-    fclose(arquivo);
-}
-
-void relatorioFinanceiro(void) {
-    FILE *vendas;
-    FILE *perdas;
-
-    int numeroVenda;
-    int codigoVenda;
-    int quantidadeVenda;
-    float faturamento;
-    float custo;
-    float lucro;
-
-    int numeroPerda;
-    int codigoPerda;
-    int quantidadePerda;
-    float valorPerda;
-
-    float totalFaturamento = 0;
-    float totalCusto = 0;
-    float totalLucro = 0;
-    float totalPerdas = 0;
-
-    vendas = fopen("vendas.txt", "r");
-
-    if (vendas != NULL) {
-        while (fscanf(vendas,
-                      "%d %d %d %f %f %f",
-                      &numeroVenda,
-                      &codigoVenda,
-                      &quantidadeVenda,
-                      &faturamento,
-                      &custo,
-                      &lucro) == 6) {
-
-            totalFaturamento += faturamento;
-            totalCusto += custo;
-            totalLucro += lucro;
-        }
-        fclose(vendas);
-    }
-
-    perdas = fopen("perdas.txt", "r");
-
-    if (perdas != NULL) {
-        while (fscanf(perdas,
-                      "%d %d %d %f",
-                      &numeroPerda,
-                      &codigoPerda,
-                      &quantidadePerda,
-                      &valorPerda) == 4) {
-
-            totalPerdas += valorPerda;
-        }
-        fclose(perdas);
-    }
-
-    printf("\n===== RELATORIO FINANCEIRO =====\n");
-    printf("\nFaturamento total: R$ %.2f\n", totalFaturamento);
-    printf("Custo total das vendas: R$ %.2f\n", totalCusto);
-    printf("Lucro total das vendas: R$ %.2f\n", totalLucro);
-    printf("Total de perdas: R$ %.2f\n", totalPerdas);
-    printf("\nResultado apos perdas: R$ %.2f\n",
-           totalLucro - totalPerdas);
-}
