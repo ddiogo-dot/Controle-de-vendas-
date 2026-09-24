@@ -7,6 +7,9 @@ void registrarVenda(void) {
     FILE *temporario;
     FILE *vendas;
     Produto p;
+    char caminhoProduto[512];
+    char caminhoTemporario[512];
+    char caminhoVendas[512];
 
     int codigo;
     int quantidadeVenda;
@@ -27,7 +30,8 @@ void registrarVenda(void) {
         printf("ERRO: A quantidade deve ser maior que zero.\n");
     }
 
-    arquivo = fopen("produtos.txt", "r");
+    caminhoArquivo("produtos.txt", caminhoProduto, sizeof(caminhoProduto));
+    arquivo = fopen(caminhoProduto, "r");
 
     if (arquivo == NULL) {
         printf("\nNenhum produto cadastrado.\n");
@@ -39,7 +43,8 @@ void registrarVenda(void) {
         fclose(arquivo);
         return;
     }
-    temporario = fopen("temp.txt", "w");
+    caminhoArquivo("temp.txt", caminhoTemporario, sizeof(caminhoTemporario));
+    temporario = fopen(caminhoTemporario, "w");
 
     if (temporario == NULL) {
         printf("\nErro ao criar arquivo temporario.\n");
@@ -66,7 +71,7 @@ void registrarVenda(void) {
                 Resultado r = calcularVenda(&p, quantidadeVenda, &faturamento, &custo, &lucro);
                 if (r != RESULTADO_OK) {
                     printf("%s\n", mensagemResultado(r));
-                    fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                    fclose(arquivo); fclose(temporario); remove(caminhoTemporario); return;
                 }
                 p.quantidade -= quantidadeVenda;
 
@@ -77,14 +82,15 @@ void registrarVenda(void) {
                         p.precoVenda,
                         p.quantidade);
 
-                vendas = fopen("vendas.txt", "a");
+                caminhoArquivo("vendas.txt", caminhoVendas, sizeof(caminhoVendas));
+                vendas = fopen(caminhoVendas, "a");
 
                 if (vendas == NULL) {
                     printf("\nErro ao abrir arquivo de vendas.\n");
                     if (erroLeituraProdutos()) printf("\nERRO: Arquivo de produtos invalido ou ilegivel.\n");
                     fclose(arquivo);
                     fclose(temporario);
-                    remove("temp.txt");
+                    remove(caminhoTemporario);
                     return;
                 }
 
@@ -97,11 +103,11 @@ void registrarVenda(void) {
                 float lucroLido;
                 FILE *leituraVendas;
 
-                leituraVendas = fopen("vendas.txt", "r");
+                leituraVendas = fopen(caminhoVendas, "r");
 
                 if (leituraVendas == NULL) {
                     printf("ERRO: Nao foi possivel ler o historico.\n");
-                    fclose(vendas); fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                    fclose(vendas); fclose(arquivo); fclose(temporario); remove(caminhoTemporario); return;
                 }
                 if (leituraVendas != NULL) {
                     int leitura;
@@ -109,14 +115,14 @@ void registrarVenda(void) {
                         if (n <= 0 || n == INT_MAX) {
                             printf("ERRO: Identificador invalido no historico.\n");
                             fclose(leituraVendas); fclose(vendas);
-                            fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                            fclose(arquivo); fclose(temporario); remove(caminhoTemporario); return;
                         }
                         if (n >= numeroVenda) numeroVenda = n + 1;
                     }
                     if (leitura < 0) {
                         printf("ERRO: Historico invalido; operacao cancelada.\n");
                         fclose(leituraVendas); fclose(vendas);
-                        fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                        fclose(arquivo); fclose(temporario); remove(caminhoTemporario); return;
                     }
                     fclose(leituraVendas);
                 }
@@ -131,7 +137,7 @@ void registrarVenda(void) {
 
                 if (!fecharGravacao(vendas)) {
                     printf("ERRO: Falha ao gravar historico. Estoque nao atualizado; confira o historico antes de tentar novamente.\n");
-                    fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                    fclose(arquivo); fclose(temporario); remove(caminhoTemporario); return;
                 }
 
 
@@ -166,6 +172,9 @@ void registrarPerda(void) {
     FILE *temporario;
     FILE *perdas;
     Produto p;
+    char caminhoProduto[512];
+    char caminhoTemporario[512];
+    char caminhoPerdas[512];
 
     int codigo;
     int quantidadePerdida;
@@ -184,7 +193,8 @@ void registrarPerda(void) {
         printf("ERRO: A quantidade deve ser maior que zero.\n");
     }
 
-    arquivo = fopen("produtos.txt", "r");
+    caminhoArquivo("produtos.txt", caminhoProduto, sizeof(caminhoProduto));
+    arquivo = fopen(caminhoProduto, "r");
 
     if (arquivo == NULL) {
         printf("\nNenhum produto cadastrado.\n");
@@ -196,7 +206,8 @@ void registrarPerda(void) {
         fclose(arquivo);
         return;
     }
-    temporario = fopen("temp.txt", "w");
+    caminhoArquivo("temp.txt", caminhoTemporario, sizeof(caminhoTemporario));
+    temporario = fopen(caminhoTemporario, "w");
 
     if (temporario == NULL) {
         printf("\nErro ao criar arquivo temporario.\n");
@@ -223,7 +234,7 @@ void registrarPerda(void) {
                 Resultado r = calcularPerda(&p, quantidadePerdida, &valorPerda);
                 if (r != RESULTADO_OK) {
                     printf("%s\n", mensagemResultado(r));
-                    fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                    fclose(arquivo); fclose(temporario); remove(caminhoTemporario); return;
                 }
                 p.quantidade -= quantidadePerdida;
 
@@ -234,14 +245,15 @@ void registrarPerda(void) {
                         p.precoVenda,
                         p.quantidade);
 
-                perdas = fopen("perdas.txt", "a");
+                caminhoArquivo("perdas.txt", caminhoPerdas, sizeof(caminhoPerdas));
+                perdas = fopen(caminhoPerdas, "a");
 
                 if (perdas == NULL) {
                     printf("\nErro ao abrir arquivo de perdas.\n");
                     if (erroLeituraProdutos()) printf("\nERRO: Arquivo de produtos invalido ou ilegivel.\n");
                     fclose(arquivo);
                     fclose(temporario);
-                    remove("temp.txt");
+                    remove(caminhoTemporario);
                     return;
                 }
 
@@ -252,11 +264,11 @@ void registrarPerda(void) {
                 float valorLido;
                 FILE *leituraPerdas;
 
-                leituraPerdas = fopen("perdas.txt", "r");
+                leituraPerdas = fopen(caminhoPerdas, "r");
 
                 if (leituraPerdas == NULL) {
                     printf("ERRO: Nao foi possivel ler o historico.\n");
-                    fclose(perdas); fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                    fclose(perdas); fclose(arquivo); fclose(temporario); remove(caminhoTemporario); return;
                 }
                 if (leituraPerdas != NULL) {
                     int leitura;
@@ -264,14 +276,14 @@ void registrarPerda(void) {
                         if (n <= 0 || n == INT_MAX) {
                             printf("ERRO: Identificador invalido no historico.\n");
                             fclose(leituraPerdas); fclose(perdas);
-                            fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                            fclose(arquivo); fclose(temporario); remove(caminhoTemporario); return;
                         }
                         if (n >= numeroPerda) numeroPerda = n + 1;
                     }
                     if (leitura < 0) {
                         printf("ERRO: Historico invalido; operacao cancelada.\n");
                         fclose(leituraPerdas); fclose(perdas);
-                        fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                        fclose(arquivo); fclose(temporario); remove(caminhoTemporario); return;
                     }
                     fclose(leituraPerdas);
                 }
@@ -284,7 +296,7 @@ void registrarPerda(void) {
 
                 if (!fecharGravacao(perdas)) {
                     printf("ERRO: Falha ao gravar historico. Estoque nao atualizado; confira o historico antes de tentar novamente.\n");
-                    fclose(arquivo); fclose(temporario); remove("temp.txt"); return;
+                    fclose(arquivo); fclose(temporario); remove(caminhoTemporario); return;
                 }
 
 

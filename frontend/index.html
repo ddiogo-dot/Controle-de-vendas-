@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Estoque — Controle de produtos</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="model.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Pular para o conteúdo</a>
+  <aside class="sidebar" aria-label="Menu principal">
+    <a class="brand" href="./index.html" aria-label="Estoque, início"><span class="brand-mark" data-icon="box"></span>Bar 335<span class="brand-dot">.</span></a>
+    <div class="workspace"><span class="shop-icon" data-icon="shop"></span><div><strong>Bar 335 Universitário</strong><span>Controle de produtos</span></div></div>
+    <p class="nav-label">ESPAÇO DE TRABALHO</p>
+    <a class="nav-item active" href="#main" aria-current="page"><span data-icon="grid"></span>Produtos<span class="nav-count" id="nav-count">0</span></a>
+    <button class="nav-item" id="about-button"><span data-icon="help"></span>Como funciona</button>
+    <div class="sidebar-bottom"><div class="version-icon" data-icon="layers"></div><strong>Um passo de cada vez.</strong><p>Organize os produtos e acompanhe seu estoque em um só lugar.</p><span class="version">PRIMEIRA VERSÃO · 01</span></div>
+    <div class="sidebar-footer"><span class="avatar">335</span><div><strong>Bar 335 Universitário</strong><span>Ambiente de demonstração</span></div></div>
+  </aside>
+  <div class="page">
+    <header class="topbar"><div class="breadcrumb">Bar 335 Universitário <span>/</span> <strong>Produtos</strong></div><div class="topbar-actions"><span class="local-badge"><span class="status-dot"></span>Dados neste navegador</span><button class="icon-button mobile-help" id="about-mobile" aria-label="Como funciona"><span data-icon="help"></span></button></div></header>
+    <main id="main"><div class="print-header"><h1>Bar 335 Universitário</h1><p>Relatório de estoque</p><p id="print-date"></p><p>Fonte: dados salvos neste navegador.</p> </div>
+      <div class="heading"><div><div class="eyebrow">VISÃO GERAL</div><h1>Seu estoque, em dia<span>.</span></h1><p>Os produtos da sua loja, com tudo o que você precisa saber.</p></div><button class="button primary" id="add-button"><span data-icon="plus"></span>Novo produto</button></div>
+      <div class="demo-note"><span data-icon="info"></span><p><strong>Vamos começar?</strong> Estes são dados de exemplo. Suas alterações ficam neste navegador. O backend C ainda não está conectado.</p></div>
+      <p id="storage-warning" class="storage-warning" role="alert" hidden></p>
+      <section class="metrics" aria-label="Resumo do estoque">
+        <article class="metric"><div class="metric-top"><span>Produtos cadastrados</span><span class="metric-icon mint" data-icon="box"></span></div><strong id="metric-products">0</strong><p>Itens diferentes no catálogo</p></article>
+        <article class="metric"><div class="metric-top"><span>Unidades em estoque</span><span class="metric-icon lavender" data-icon="layers"></span></div><strong id="metric-units">0</strong><p>Soma das quantidades disponíveis</p></article>
+        <article class="metric"><div class="metric-top"><span>Valor de compra do estoque</span><span class="metric-icon sand" data-icon="wallet"></span></div><strong id="metric-value">R$ 0,00</strong><p>Quantidade × preço de compra</p></article>
+      </section>
+      <section class="catalog" aria-labelledby="catalog-title">
+        <div class="catalog-heading"><div><h2 id="catalog-title">Seus produtos <span id="catalog-count">0</span></h2><p>Uma visão clara de cada item.</p></div><button class="button secondary compact" id="export-button"><button class="button secondary compact" id="pdf-button" type="button"> Salvar relatório em PDF</button><span data-icon="download"></span>Exportar JSON</button></div>
+        <div class="toolbar"><div class="filters" role="group" aria-label="Filtrar por estoque"><button class="filter active" data-filter="all" aria-pressed="true">Todos</button><button class="filter" data-filter="low" aria-pressed="false">Estoque baixo <span id="low-count">0</span></button><button class="filter" data-filter="empty" aria-pressed="false">Sem estoque</button></div><label class="search"><span data-icon="search"></span><input id="search" type="search" placeholder="Buscar nome ou código..." aria-label="Buscar produto por nome ou código"></label></div>
+        <div class="table-scroll"><table><thead><tr><th scope="col">PRODUTO</th><th scope="col">CÓDIGO</th><th scope="col" class="number">COMPRA</th><th scope="col" class="number">VENDA</th><th scope="col" class="number">QUANTIDADE</th><th scope="col">SITUAÇÃO</th><th scope="col"><span class="sr-only">Ações</span></th></tr></thead><tbody id="product-rows"></tbody></table></div>
+        <div id="empty-state" class="empty-state" hidden><span data-icon="search"></span><h3>Nenhum produto por aqui</h3><p>Tente outro nome, código ou filtro.</p><button class="button secondary" id="clear-button">Limpar busca e filtros</button></div>
+        <div class="table-footer"><span id="result-count" aria-live="polite"></span><span class="threshold"><span class="small-dot"></span>Estoque baixo: de 1 a 5 unidades</span></div>
+      </section>
+      <footer class="main-footer"><span>Feito para simplificar o dia a dia da sua loja.</span><button id="reset-button">Restaurar dados de exemplo</button></footer>
+    </main>
+  </div>
+  <dialog id="product-dialog" aria-labelledby="dialog-title">
+    <form id="product-form" novalidate>
+      <div class="dialog-header"><div><div class="eyebrow">CATÁLOGO</div><h2 id="dialog-title">Novo produto</h2></div><button class="icon-button" type="button" data-close="product-dialog" aria-label="Fechar formulário"><span data-icon="close"></span></button></div>
+      <p class="dialog-description">Preencha os dados para organizar seu estoque.</p>
+      <div class="fields"><label class="full">Nome do produto<input name="nome" id="field-name" maxlength="99" placeholder="Ex.: Água mineral 500 ml" autocomplete="off" required><small>Até 99 bytes em UTF-8. Espaços são permitidos.</small></label><label>Código<input name="codigo" id="field-code" type="number" min="1" max="2147483647" step="1" required></label><label>Quantidade<input name="quantidade" type="number" min="0" max="100000" step="1" placeholder="0" required></label><label>Preço de compra (R$)<input name="compra" type="text" inputmode="decimal" placeholder="0,00" maxlength="12" required></label><label>Preço de venda (R$)<input name="venda" type="text" inputmode="decimal" placeholder="0,00" maxlength="12" required></label></div>
+      <p class="field-hint">Use vírgula ou ponto decimal, sem separador de milhar.</p><p id="form-error" class="form-error" role="alert" hidden></p>
+      <div class="dialog-actions"><button class="button secondary" type="button" data-close="product-dialog">Cancelar</button><button class="button primary" type="submit" id="save-button">Cadastrar produto</button></div>
+    </form>
+  </dialog>
+  <dialog id="about-dialog" aria-labelledby="about-title"><div class="dialog-header"><h2 id="about-title">Sobre esta primeira versão</h2><button class="icon-button" data-close="about-dialog" aria-label="Fechar"><span data-icon="close"></span></button></div><div class="about-content"><p>Você já pode cadastrar, editar, buscar e filtrar produtos, acompanhar os totais e exportar uma cópia dos dados em JSON.</p><p><strong>Os dados ficam apenas neste navegador.</strong> Outro navegador ou endereço terá uma cópia diferente. Limpar os dados do site apaga essas alterações.</p><p>Este protótipo não lê nem modifica os arquivos do seu programa C. A conexão com o backend será a próxima etapa.</p><p>Os preços são guardados como centavos inteiros. O limite desta demonstração é de 1.000 produtos, 100.000 unidades por produto e R$ 100.000,00 por preço.</p></div><div class="dialog-actions"><button class="button primary" data-close="about-dialog">Entendi</button></div></dialog>
+  <dialog id="reset-dialog" aria-labelledby="reset-title"><div class="dialog-header"><h2 id="reset-title">Restaurar os exemplos?</h2><button class="icon-button" data-close="reset-dialog" aria-label="Fechar"><span data-icon="close"></span></button></div><p class="dialog-description">Os produtos e alterações salvos neste navegador serão substituídos pelos exemplos iniciais. Exporte uma cópia antes se quiser guardar os dados.</p><div class="dialog-actions"><button class="button secondary" data-close="reset-dialog">Cancelar</button><button class="button danger" id="confirm-reset">Restaurar exemplos</button></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

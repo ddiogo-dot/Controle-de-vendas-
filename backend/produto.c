@@ -5,8 +5,10 @@
 int produtoExiste(int codigo) {
     FILE *arquivo;
     Produto p;
+    char caminhoProduto[512];
 
-    arquivo = fopen("produtos.txt", "r");
+    caminhoArquivo("produtos.txt", caminhoProduto, sizeof(caminhoProduto));
+    arquivo = fopen(caminhoProduto, "r");
 
     if (arquivo == NULL) {
         return 0;
@@ -93,8 +95,10 @@ void salvarProduto(Produto p) {
 void listarProdutos(void) {
     FILE *arquivo;
     Produto p;
+    char caminhoProduto[512];
 
-    arquivo = fopen("produtos.txt", "r");
+    caminhoArquivo("produtos.txt", caminhoProduto, sizeof(caminhoProduto));
+    arquivo = fopen(caminhoProduto, "r");
 
     if (arquivo == NULL) {
         printf("\nNenhum produto cadastrado.\n");
@@ -122,11 +126,13 @@ void pesquisarProduto(void) {
     Produto p;
     int codigo;
     int encontrado = 0;
+    char caminhoProduto[512];
 
     while (!lerInteiro(&codigo, "\nDigite o codigo do produto: ")) {
     }
 
-    arquivo = fopen("produtos.txt", "r");
+    caminhoArquivo("produtos.txt", caminhoProduto, sizeof(caminhoProduto));
+    arquivo = fopen(caminhoProduto, "r");
 
     if (arquivo == NULL) {
         printf("\nNenhum produto cadastrado.\n");
@@ -163,11 +169,14 @@ void alterarProduto(void) {
     Produto p;
     int codigo;
     int encontrado = 0;
+    char caminhoProduto[512];
+    char caminhoTemporario[512];
 
     while (!lerInteiro(&codigo, "\nDigite o codigo do produto que deseja alterar: ")) {
     }
 
-    arquivo = fopen("produtos.txt", "r");
+    caminhoArquivo("produtos.txt", caminhoProduto, sizeof(caminhoProduto));
+    arquivo = fopen(caminhoProduto, "r");
 
     if (arquivo == NULL) {
         printf("\nNenhum produto cadastrado.\n");
@@ -178,7 +187,8 @@ void alterarProduto(void) {
         printf("ERRO: Arquivo de produtos invalido; nenhum dado foi alterado.\n");
         fclose(arquivo); return;
     }
-    temporario = fopen("temp.txt", "w");
+    caminhoArquivo("temp.txt", caminhoTemporario, sizeof(caminhoTemporario));
+    temporario = fopen(caminhoTemporario, "w");
 
     if (temporario == NULL) {
         printf("\nErro ao criar arquivo temporario.\n");
@@ -243,11 +253,14 @@ void excluirProduto(void) {
     Produto p;
     int codigo;
     int encontrado = 0;
+    char caminhoProduto[512];
+    char caminhoTemporario[512];
 
     while (!lerInteiro(&codigo, "\nDigite o codigo do produto que deseja excluir: ")) {
     }
 
-    arquivo = fopen("produtos.txt", "r");
+    caminhoArquivo("produtos.txt", caminhoProduto, sizeof(caminhoProduto));
+    arquivo = fopen(caminhoProduto, "r");
 
     if (arquivo == NULL) {
         printf("\nNenhum produto cadastrado.\n");
@@ -258,7 +271,8 @@ void excluirProduto(void) {
         printf("ERRO: Arquivo de produtos invalido; nenhum dado foi alterado.\n");
         fclose(arquivo); return;
     }
-    temporario = fopen("temp.txt", "w");
+    caminhoArquivo("temp.txt", caminhoTemporario, sizeof(caminhoTemporario));
+    temporario = fopen(caminhoTemporario, "w");
 
     if (temporario == NULL) {
         printf("\nErro ao criar arquivo temporario.\n");

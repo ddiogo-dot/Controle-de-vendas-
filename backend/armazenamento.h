@@ -2,6 +2,7 @@
 #define ARMAZENAMENTO_H
 #include "produto.h"
 /* 1 = registro; 0 = fim; -1 = erro. Uso sequencial, processo unico. */
+void caminhoArquivo(const char *nome, char *destino, size_t tamanho);
 int lerProdutoArquivo(FILE *arquivo, Produto *produto);
 int erroLeituraProdutos(void);
 int validarArquivoProdutos(FILE *arquivo);

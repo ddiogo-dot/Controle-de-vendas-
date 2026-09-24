@@ -5,11 +5,13 @@
 void relatorioEstoque(void) {
     FILE *arquivo;
     Produto p;
+    char caminhoProduto[512];
 
     double totalInvestido = 0;
     double valorPotencial = 0;
 
-    arquivo = fopen("produtos.txt", "r");
+    caminhoArquivo("produtos.txt", caminhoProduto, sizeof(caminhoProduto));
+    arquivo = fopen(caminhoProduto, "r");
 
     if (arquivo == NULL) {
         printf("\nNenhum produto cadastrado.\n");
@@ -65,8 +67,10 @@ void relatorioVendas(void) {
     double totalCusto = 0;
     double totalLucro = 0;
     int encontrou = 0;
+    char caminhoVendas[512];
 
-    arquivo = fopen("vendas.txt", "r");
+    caminhoArquivo("vendas.txt", caminhoVendas, sizeof(caminhoVendas));
+    arquivo = fopen(caminhoVendas, "r");
 
     if (arquivo == NULL) {
         printf("\nNenhuma venda registrada.\n");
@@ -115,8 +119,10 @@ void relatorioPerdas(void) {
     int quantidade;
     float valorPerda;
     double totalPerdas = 0;
+    char caminhoPerdas[512];
 
-    arquivo = fopen("perdas.txt", "r");
+    caminhoArquivo("perdas.txt", caminhoPerdas, sizeof(caminhoPerdas));
+    arquivo = fopen(caminhoPerdas, "r");
 
     if (arquivo == NULL) {
         printf("\nNenhuma perda registrada.\n");
@@ -151,6 +157,8 @@ void relatorioPerdas(void) {
 void relatorioFinanceiro(void) {
     FILE *vendas;
     FILE *perdas;
+    char caminhoVendas[512];
+    char caminhoPerdas[512];
 
     int numeroVenda;
     int codigoVenda;
@@ -169,7 +177,8 @@ void relatorioFinanceiro(void) {
     double totalLucro = 0;
     double totalPerdas = 0;
 
-    vendas = fopen("vendas.txt", "r");
+    caminhoArquivo("vendas.txt", caminhoVendas, sizeof(caminhoVendas));
+    vendas = fopen(caminhoVendas, "r");
 
     if (vendas != NULL) {
         int leitura;
@@ -186,7 +195,8 @@ void relatorioFinanceiro(void) {
         fclose(vendas);
     }
 
-    perdas = fopen("perdas.txt", "r");
+    caminhoArquivo("perdas.txt", caminhoPerdas, sizeof(caminhoPerdas));
+    perdas = fopen(caminhoPerdas, "r");
 
     if (perdas != NULL) {
         int leitura;

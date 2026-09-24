@@ -8,6 +8,34 @@
 static int erroLeitura;
 int erroLeituraProdutos(void) { return erroLeitura; }
 
+void caminhoArquivo(const char *nome, char *destino, size_t tamanho) {
+    char base[512];
+    char legado[512];
+
+    if (snprintf(destino, tamanho, "%s", nome) >= (int)tamanho) {
+        destino[tamanho - 1] = '\0';
+        return;
+    }
+
+    if (access(destino, F_OK) == 0) {
+        return;
+    }
+
+    if (snprintf(legado, sizeof(legado), "files/%s", nome) >= (int)sizeof(legado)) {
+        legado[sizeof(legado) - 1] = '\0';
+    }
+
+    if (access("files", F_OK) == 0 || access(legado, F_OK) == 0) {
+        snprintf(destino, tamanho, "%s", legado);
+        return;
+    }
+
+    if (snprintf(base, sizeof(base), "%s", nome) >= (int)sizeof(base)) {
+        base[sizeof(base) - 1] = '\0';
+    }
+    snprintf(destino, tamanho, "%s", base);
+}
+
 /* Conversoes limitadas evitam overflow de scanf em arquivos corrompidos. */
 static int inteiro(const char *s, int *n) {
     char *fim;
@@ -81,40 +109,48 @@ int fecharGravacao(FILE *a) {
 }
 
 int concluirProdutos(FILE *origem, FILE *temporario) {
+    char tempPath[512];
+    char produtoPath[512];
     int ok = !erroLeitura && !ferror(origem);
     if (fclose(origem) != 0) ok = 0;
     if (!fecharGravacao(temporario)) ok = 0;
+    caminhoArquivo("temp.txt", tempPath, sizeof(tempPath));
+    caminhoArquivo("produtos.txt", produtoPath, sizeof(produtoPath));
     /* No Linux, rename substitui o destino sem remove-lo primeiro. */
-    if (ok && rename("temp.txt", "produtos.txt") == 0) return 1;
-    remove("temp.txt");
+    if (ok && rename(tempPath, produtoPath) == 0) return 1;
+    remove(tempPath);
     return 0;
 }
 
 Resultado criarProduto(const Produto *dados) {
+    char produtoPath[512];
+    char tempPath[512];
     if (validarProduto(dados) != RESULTADO_OK) return DADOS_INVALIDOS;
     Produto novo = *dados, p;
     substituirEspacos(novo.nome);
-    FILE *a = fopen("produtos.txt", "r");
+    caminhoArquivo("produtos.txt", produtoPath, sizeof(produtoPath));
+    FILE *a = fopen(produtoPath, "r");
     if (!a && errno != ENOENT) return ERRO_ARQUIVO;
     if (a && !validarArquivoProdutos(a)) { fclose(a); return ERRO_ARQUIVO; }
-    FILE *t = fopen("temp.txt", "w");
+    caminhoArquivo("temp.txt", tempPath, sizeof(tempPath));
+    FILE *t = fopen(tempPath, "w");
     if (!t) { if (a) fclose(a); return ERRO_ARQUIVO; }
     int r = 0;
     if (a) {
         while ((r = lerProdutoArquivo(a, &p)) == 1) {
             if (p.codigo == novo.codigo) {
-                fclose(a); fclose(t); remove("temp.txt");
+                fclose(a); fclose(t); remove(tempPath);
                 return PRODUTO_DUPLICADO;
             }
             fprintf(t, "%d %s %.2f %.2f %d\n", p.codigo, p.nome, p.precoCompra, p.precoVenda, p.quantidade);
         }
-        if (r < 0) { fclose(a); fclose(t); remove("temp.txt"); return ERRO_ARQUIVO; }
+        if (r < 0) { fclose(a); fclose(t); remove(tempPath); return ERRO_ARQUIVO; }
     }
     fprintf(t, "%d %s %.2f %.2f %d\n", novo.codigo, novo.nome, novo.precoCompra, novo.precoVenda, novo.quantidade);
     if (a) return concluirProdutos(a, t) ? RESULTADO_OK : ERRO_ARQUIVO;
     int ok = fecharGravacao(t);
-    if (ok && rename("temp.txt", "produtos.txt") == 0) return RESULTADO_OK;
-    remove("temp.txt");
+    if (ok && rename(tempPath, produtoPath) == 0) return RESULTADO_OK;
+    remove(tempPath);
     return ERRO_ARQUIVO;
 }
 
