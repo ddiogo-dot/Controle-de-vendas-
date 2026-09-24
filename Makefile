@@ -11,3 +11,4 @@ test:
 	python3 tests/test_regressions.py
 clean:
 	rm -f loja
+	rm -f app
