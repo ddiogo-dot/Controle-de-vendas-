@@ -52,37 +52,70 @@ function warnStorage(message) {
   $('storage-warning').textContent = message;
   $('storage-warning').hidden = false;
 }
-function carregarProdutos() {
-  let raw;
-  try { raw = localStorage.getItem(STORAGE_KEY); }
-  catch {
-    memoryOnly = true;
-    warnStorage('O navegador bloqueou o armazenamento. As alterações durarão apenas nesta sessão; exporte uma cópia para guardá-las.');
-    return cloneExamples();
-  }
-  if (raw === null) return cloneExamples();
+let products = [];
+let apiReady = false;
+let apiLoading = true;
+
+async function carregarProdutos() {
+  apiReady = false;
+  apiLoading = true;
+  products = [];
+
+  warnStorage('Carregando produtos do servidor...');
+  render();
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
   try {
-    const data = JSON.parse(raw);
-    if (data.version !== 1 || !validProducts(data.produtos)) throw new Error('Invalid data');
-    return data.produtos;
-  } catch {
-    damagedStorage = true;
-    warnStorage('Os dados salvos não puderam ser lidos. Eles foram preservados. O cadastro está bloqueado até você escolher “Restaurar dados de exemplo”.');
-    return [];
+    const response = await fetch('/api/produtos', {
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+
+    if (!contentType.includes('application/json')) {
+      throw new Error(
+        'O servidor não retornou JSON. Abra a página pela porta 8080.'
+      );
+    }
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data?.erro || `Erro HTTP ${response.status}.`);
+    }
+
+    if (!validProducts(data)) {
+      throw new Error(
+        'Os produtos recebidos não atendem às regras do frontend.'
+      );
+    }
+
+    products = data;
+    apiReady = true;
+    $('storage-warning').hidden = true;
+  } catch (error) {
+    const message = error.name === 'AbortError'
+      ? 'O servidor demorou demais para responder.'
+      : error.message;
+
+    warnStorage(
+      `Não foi possível carregar os produtos: ${message} ` +
+      'Verifique a API e recarregue a página.'
+    );
+  } finally {
+    clearTimeout(timeout);
+    apiLoading = false;
+    render();
   }
 }
-let products = carregarProdutos();
 
-function salvarProdutos(next, allowReset = false) {
-  if (!validProducts(next)) throw new Error('Dados de produtos inválidos.');
-  if (damagedStorage && !allowReset) throw new Error('Restaure os exemplos antes de cadastrar novos produtos.');
-  if (!memoryOnly) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, produtos: next })); }
-    catch { throw new Error('Não foi possível salvar. O limite do navegador pode ter sido atingido. Nenhuma alteração foi aplicada.'); }
-  }
-  products = next;
-  damagedStorage = false;
-  if (!memoryOnly) $('storage-warning').hidden = true;
+function salvarProdutos() {
+  throw new Error(
+    'A API está em modo de consulta. A gravação será implementada depois.'
+  );
 }
 function notify(message) {
   clearTimeout(toastTimer);
@@ -104,8 +137,25 @@ function render() {
   $('nav-count').textContent = products.length;
   $('catalog-count').textContent = products.length;
   $('low-count').textContent = low;
-  $('add-button').disabled = damagedStorage || products.length >= MAX_PRODUCTS;
-  $('export-button').disabled = damagedStorage;
+  $('add-button').disabled = true;
+  $('add-button').title = 'Cadastro pela API ainda não implementado';
+
+  $('reset-button').disabled = true;
+  $('confirm-reset').disabled = true;
+
+  $('export-button').disabled = !apiReady;
+
+  const pdfButton = $('pdf-button');
+  if (pdfButton) pdfButton.disabled = !apiReady;
+
+  if (!apiReady) {
+    $('metric-products').textContent = '—';
+    $('metric-units').textContent = '—';
+    $('metric-value').textContent = '—';
+    $('nav-count').textContent = '—';
+    $('catalog-count').textContent = '—';
+    $('low-count').textContent = '—';
+  }
   const query = normalize($('search').value.trim());
   const visible = products.filter(p => {
     const matches = normalize(p.nome).includes(query) || String(p.codigo).includes(query);
@@ -126,11 +176,17 @@ function render() {
     const badgeCell = document.createElement('td'); badgeCell.append(element('span', `badge ${state[0]}`, state[1])); tr.append(badgeCell);
     const actionCell = document.createElement('td');
     const edit = element('button', 'icon-button');
+    edit.disabled = true;
     edit.type = 'button'; edit.setAttribute('aria-label', `Editar ${p.nome}`); edit.title = 'Editar produto'; edit.append(icon('edit')); edit.addEventListener('click', () => openForm(p));
     actionCell.append(edit); tr.append(actionCell); body.append(tr);
   });
-  $('empty-state').hidden = visible.length !== 0;
-  $('result-count').textContent = `Mostrando ${visible.length} de ${products.length} produtos`;
+  $('empty-state').hidden = !apiReady || visible.length !== 0;
+
+  $('result-count').textContent = apiLoading
+    ? 'Carregando produtos...'
+    : apiReady
+      ? `Mostrando ${visible.length} de ${products.length} produtos`
+      : 'Produtos indisponíveis. Recarregue após verificar a API.';
   document.querySelectorAll('[data-filter]').forEach(button => {
     const active = button.dataset.filter === currentFilter;
     button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active));
@@ -196,6 +252,7 @@ $('confirm-reset').addEventListener('click', () => {
   } catch (error) { $('reset-dialog').close(); warnStorage(error.message); }
 });
 $('export-button').addEventListener('click', () => {
+  if (!apiReady) return;
   const data = { version: 1, exportedAt: new Date().toISOString(), produtos: products };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -203,8 +260,12 @@ $('export-button').addEventListener('click', () => {
   document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   notify('Cópia JSON exportada.');
 });
-render();
+carregarProdutos();
 $('pdf-button').addEventListener('click', () => {
+  if (!apiReady) {
+    notify('Aguarde o carregamento dos produtos.');
+    return;
+  }
   // Print the complete catalog, regardless of the current search.
   const previousFilter = currentFilter;
   const previousSearch = $('search').value;
